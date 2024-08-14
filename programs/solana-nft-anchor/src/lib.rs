@@ -2,8 +2,9 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
-    token::{mint_to, Mint, MintTo, Token, TokenAccount},
+    token::{mint_to, Mint, MintTo, Token, TokenAccount, set_authority, SetAuthority},
 };
+
 
 use std::mem::size_of;
 
@@ -26,7 +27,7 @@ pub mod solana_nft_anchor {
 
     pub fn init_nft(ctx: Context<InitNFT>, num_nfts: u64) -> Result<()> {
         let state = &mut ctx.accounts.state;
-
+        
         // Check that only the program's owner can mint
         require!(ctx.accounts.signer.key() == state.owner, CustomError::Unauthorized);
 
@@ -47,6 +48,22 @@ pub mod solana_nft_anchor {
             mint_to(cpi_context, 1)?;
             state.nfts_minted += 1;
         }
+
+        // TODO: close the mint account
+        // Disable future minting by setting the mint authority to None
+        let cpi_context = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            SetAuthority {
+                account_or_mint: ctx.accounts.mint.to_account_info(),
+                current_authority: ctx.accounts.signer.to_account_info(),
+            },
+        );
+
+        set_authority(
+            cpi_context,
+            spl_token::instruction::AuthorityType::MintTokens,
+            None
+        )?;
 
         Ok(())
     }
@@ -81,7 +98,7 @@ pub struct InitNFT<'info> {
     )]
     pub mint: Account<'info, Mint>,
     #[account(
-        init_if_needed,
+        init,
         payer = signer,
         associated_token::mint = mint,
         associated_token::authority = signer,

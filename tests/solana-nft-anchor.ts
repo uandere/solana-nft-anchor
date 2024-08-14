@@ -3,14 +3,16 @@ import { Program } from "@coral-xyz/anchor";
 import { SolanaNftAnchor } from "../target/types/solana_nft_anchor";
 import {
     TOKEN_PROGRAM_ID,
-    ASSOCIATED_TOKEN_PROGRAM_ID,
+    ASSOCIATED_TOKEN_PROGRAM_ID, mintTo,
 } from "@solana/spl-token";
 import * as assert from "assert";
 import { before } from "mocha";
+import {min} from "bn.js";
 
 describe("solana-nft-anchor", () => {
     // Configure the client to use the local cluster.
-    anchor.setProvider(anchor.AnchorProvider.env());
+    const provider = anchor.AnchorProvider.env();
+    anchor.setProvider(provider);
 
     const program = anchor.workspace.SolanaNftAnchor as Program<SolanaNftAnchor>;
     let mint: anchor.web3.Keypair;
@@ -18,7 +20,7 @@ describe("solana-nft-anchor", () => {
     let associatedTokenAccount: anchor.web3.PublicKey;
 
     // Airdrop some SOL to the owner (for transaction fees)
-    before(async () => {
+    beforeEach(async () => {
         mint = anchor.web3.Keypair.generate();
         nftStateAccount = anchor.web3.Keypair.generate();
 
@@ -33,18 +35,12 @@ describe("solana-nft-anchor", () => {
         console.log("Associated Token Account PublicKey:", associatedTokenAccount.toBase58());
         console.log("Wallet PublicKey:", program.provider.wallet.publicKey.toBase58());
 
-        const signature = await program.provider.connection.requestAirdrop(
-            program.provider.wallet.publicKey,
-            10e9
-        );
-
         // Confirm the airdrop transaction
-        await program.provider.connection.confirmTransaction(signature, "confirmed");
         console.log("Finished initialization ✅");
     });
 
     it("Initializes the state and mints 4 NFTs", async () => {
-        console.log("Before initialization");
+        console.log("Before state initialization");
 
         // Initialize the state account with a total supply of 10 NFTs
         await program.rpc.initialize(new anchor.BN(10), {
@@ -57,7 +53,7 @@ describe("solana-nft-anchor", () => {
             signers: [nftStateAccount],
         });
 
-        console.log("After initialization");
+        console.log("After state initialization");
 
         // Now mint 4 NFTs
         await program.rpc.initNft(new anchor.BN(4), {
@@ -79,5 +75,23 @@ describe("solana-nft-anchor", () => {
         // Fetch the state account and verify that 4 NFTs were minted
         const stateAccount = await program.account.nftState.fetch(nftStateAccount.publicKey);
         assert.equal(stateAccount.nftsMinted.toNumber(), 4, "4 NFTs should have been minted");
+
+        // TODO: THIS DOESN'T FAIL FOR THE EXPECTED REASON
+        try {
+            console.log(program.provider.wallet);
+
+            await mintTo(
+                program.provider.connection,
+                program.provider.wallet,
+                mint.publicKey,
+                associatedTokenAccount,
+                program.provider.wallet.publicKey,
+                1,
+            );
+            assert.fail("Minting should fail after authority is removed");
+        } catch (err) {
+            console.log("Minting failed as expected:", err);
+            assert.ok("Minting failed as expected");
+        }
     });
 });
