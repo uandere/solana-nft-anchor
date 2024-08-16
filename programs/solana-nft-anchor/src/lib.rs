@@ -49,7 +49,6 @@ pub mod solana_nft_anchor {
             state.nfts_minted += 1;
         }
 
-        // TODO: close the mint account
         // Disable future minting by setting the mint authority to None
         let cpi_context = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
