@@ -15,6 +15,8 @@ describe("solana-nft-anchor", () => {
 
     const program = anchor.workspace.SolanaNftAnchor as Program<SolanaNftAnchor>;
 
+    const provider_wallet = provider.wallet as anchor.Wallet;
+
     let mint: anchor.web3.Keypair;
     let nftStateAccount: anchor.web3.Keypair;
     let associatedTokenAccount: anchor.web3.PublicKey;
@@ -78,7 +80,7 @@ describe("solana-nft-anchor", () => {
         try {
             await mintTo(
                 program.provider.connection,
-                provider.wallet.payer,
+                provider_wallet.payer,
                 mint.publicKey,
                 associatedTokenAccount,
                 provider.wallet.publicKey,
